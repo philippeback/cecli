@@ -131,3 +131,31 @@ async def test_execute_clears_context_when_flag_present(tmp_path):
         assert ReadFileTool._last_read_turn == {}
         assert ReadFileTool._special_marker_count == {}
         assert coder.run_one.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_execute_no_compact_flag(tmp_path):
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "item1.txt").write_text("1", encoding="utf-8")
+
+    observed_during_run = []
+
+    async def fake_run_one(prompt, preproc=True):
+        observed_during_run.append(coder.enable_context_compaction)
+
+    io = MagicMock()
+    coder = SimpleNamespace(
+        root=str(tmp_path),
+        run_one=fake_run_one,
+        enable_context_compaction=True,
+    )
+
+    await ForeachCommand.execute(io, coder, "src/*.txt :: Review {filename}")
+    assert observed_during_run == [True]
+    assert coder.enable_context_compaction is True
+
+    observed_during_run.clear()
+    await ForeachCommand.execute(io, coder, "src/*.txt --no-compact :: Review {filename}")
+    assert observed_during_run == [False]
+    assert coder.enable_context_compaction is True
