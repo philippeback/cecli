@@ -645,3 +645,18 @@ def test_grep_path_prefixed_file_glob_finds_matches(tmp_path, monkeypatch):
     assert op["_"]["error"] is None
     assert op["_"]["total_matches"] >= 1
     assert op["_"]["total_files"] == 1
+
+
+def test_build_powershell_search_script_supports_comma_separated_globs():
+    script = grep._build_powershell_search_script(
+        search_dir_path=".",
+        pattern="needle",
+        file_pattern="*.py, *.md",
+        use_regex=True,
+        case_insensitive=True,
+        context_before=0,
+        context_after=0,
+        count_only=False,
+    )
+    assert "-Include '*.py', '*.md'" in script
+    assert "-Filter" not in script
