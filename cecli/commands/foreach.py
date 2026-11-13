@@ -29,7 +29,7 @@ class ForeachCommand(BaseCommand):
 
     @classmethod
     def _create_arg_parser(cls) -> argparse.ArgumentParser:
-        parser = argparse.ArgumentParser(prog="/foreach", add_help=False)
+        parser = argparse.ArgumentParser(prog="/foreach", add_help=False, exit_on_error=False)
         parser.add_argument("-u", "--unless-exists", dest="unless_exists", default=None,
                             help="Skip item if the evaluated target file path already exists on disk.")
         parser.add_argument("-c", "--clear", dest="clear", action="store_true", default=False,
@@ -56,18 +56,21 @@ class ForeachCommand(BaseCommand):
         if not raw:
             return None, None, None
 
-        if "::" in raw:
-            head, template = raw.split("::", 1)
-            tokens = shlex.split(head.strip())
-            parsed, unknown = parser.parse_known_args(tokens)
-            if not parsed.pattern and unknown:
-                parsed.pattern = unknown[0]
-            return parsed, template.strip(), None
-        else:
-            tokens = shlex.split(raw)
-            parsed, unknown = parser.parse_known_args(tokens)
-            template = " ".join(unknown).strip()
-            return parsed, template, None
+        try:
+            if "::" in raw:
+                head, template = raw.split("::", 1)
+                tokens = shlex.split(head.strip())
+                parsed, unknown = parser.parse_known_args(tokens)
+                if not parsed.pattern and unknown:
+                    parsed.pattern = unknown[0]
+                return parsed, template.strip(), None
+            else:
+                tokens = shlex.split(raw)
+                parsed, unknown = parser.parse_known_args(tokens)
+                template = " ".join(unknown).strip()
+                return parsed, template, None
+        except (argparse.ArgumentError, SystemExit, ValueError) as e:
+            return None, None, f"Invalid /foreach arguments: {e}"
 
     @classmethod
     async def execute(cls, io, coder, args: str, **kwargs: Any) -> Optional[str]:
@@ -80,6 +83,9 @@ class ForeachCommand(BaseCommand):
             return "Usage: /foreach [options] <glob_pattern> [::] <prompt_template>"
 
         parsed, template, err = cls.parse_args(raw_args)
+        if err:
+            io.tool_error(err)
+            return err
         if not parsed or not parsed.pattern or not template:
             io.tool_error(
                 "Missing required pattern or prompt template.\n"
