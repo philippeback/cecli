@@ -42,6 +42,8 @@ class ForeachCommand(BaseCommand):
                             help="Delay in seconds between iterations.")
         parser.add_argument("--allow-truncation", dest="no_truncation", action="store_false", default=True,
                             help="Allow context management to truncate large files during batch iteration (default: False/never truncate).")
+        parser.add_argument("--no-compact", "--no-compaction", dest="no_compact", action="store_true", default=False,
+                            help="Disable chat history compaction during batch iteration.")
         parser.add_argument("pattern", nargs="?", default=None,
                             help="Glob pattern or directory path matching target files.")
         return parser
@@ -179,6 +181,7 @@ class ForeachCommand(BaseCommand):
 
         orig_context_mgmt = getattr(coder, "context_management_enabled", None)
         orig_threshold = getattr(coder, "large_file_token_threshold", None)
+        orig_enable_compaction = getattr(coder, "enable_context_compaction", None)
         orig_repo_map_tokens = None
         if hasattr(coder, "repo_map") and coder.repo_map is not None:
             orig_repo_map_tokens = getattr(coder.repo_map, "max_map_tokens", None)
@@ -190,6 +193,8 @@ class ForeachCommand(BaseCommand):
                 coder.large_file_token_threshold = max(32768, max_tokens // 2)
             if hasattr(coder, "context_management_enabled"):
                 coder.context_management_enabled = False
+        if getattr(parsed, "no_compact", False) and hasattr(coder, "enable_context_compaction"):
+            coder.enable_context_compaction = False
 
         try:
             for idx, item in enumerate(candidates, start=1):
@@ -265,6 +270,8 @@ class ForeachCommand(BaseCommand):
                 coder.context_management_enabled = orig_context_mgmt
             if orig_threshold is not None and hasattr(coder, "large_file_token_threshold"):
                 coder.large_file_token_threshold = orig_threshold
+            if orig_enable_compaction is not None and hasattr(coder, "enable_context_compaction"):
+                coder.enable_context_compaction = orig_enable_compaction
             if orig_repo_map_tokens is not None and hasattr(coder, "repo_map") and coder.repo_map is not None:
                 coder.repo_map.max_map_tokens = orig_repo_map_tokens
 
@@ -292,6 +299,7 @@ class ForeachCommand(BaseCommand):
         help_text += "  -n, --limit <count>         Process at most N items\n"
         help_text += "  --dry-run                   Preview matching files and prompts without executing\n"
         help_text += "  --delay <seconds>           Pause between iterations (default: 0)\n"
+        help_text += "  --no-compact                Disable chat history compaction during batch iteration\n"
         help_text += "\nExamples:\n"
         help_text += "  /foreach pine_sources/PBK_*.pine -u doc/indicator/{filename}_manual.md -c :: Delegate to worker for {file}\n"
         help_text += "  /foreach --dry-run src/*.py :: Review {file} for performance\n"
