@@ -1,4 +1,6 @@
+import os
 import shutil
+import sys
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -429,9 +431,10 @@ def test_paths_with_digit_dash_segments_are_parsed(tmp_path, monkeypatch):
     op = result.to_dict()["result"][0]
 
     assert op["_"]["total_matches"] == 2
-    assert "src/main.py: 2 match(es)" in op["content"]
+    assert f"{os.path.join('src', 'main.py')}: 2 match(es)" in op["content"]
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Colons are not allowed in Windows filenames")
 @pytest.mark.skipif(shutil.which("rg") is None, reason="rg is required")
 def test_colon_in_path_is_parsed(tmp_path, monkeypatch):
     sample = tmp_path / "a:1:b.txt"
