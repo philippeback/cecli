@@ -159,3 +159,14 @@ async def test_execute_no_compact_flag(tmp_path):
     await ForeachCommand.execute(io, coder, "src/*.txt --no-compact :: Review {filename}")
     assert observed_during_run == [False]
     assert coder.enable_context_compaction is True
+
+
+@pytest.mark.asyncio
+async def test_execute_invalid_flag_does_not_exit(tmp_path):
+    io = MagicMock()
+    coder = SimpleNamespace(root=str(tmp_path), run_one=AsyncMock())
+
+    result = await ForeachCommand.execute(io, coder, "src/*.txt -no-compact :: Review {filename}")
+    assert "Invalid /foreach arguments" in result
+    assert io.tool_error.called
+    assert coder.run_one.call_count == 0
